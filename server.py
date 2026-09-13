@@ -1,7 +1,8 @@
 import asyncio
+import hmac
 import websockets
 
-from config import HTTP_LISTEN_HOST, HTTP_LISTEN_PORT, READ_CHUNK_SIZE, WS_LISTEN_HOST, WS_LISTEN_PORT, WS_PING_INTERVAL
+from config import AUTH_TOKEN, HTTP_LISTEN_HOST, HTTP_LISTEN_PORT, READ_CHUNK_SIZE, WS_LISTEN_HOST, WS_LISTEN_PORT, WS_PING_INTERVAL
 
 agent_ws = None
 active_conns = {}
@@ -10,6 +11,17 @@ next_conn_id = 1
 
 async def ws_handler(websocket, *args):
     global agent_ws
+    try:
+        auth_msg = await asyncio.wait_for(websocket.recv(), timeout=10)
+    except Exception:
+        print("[-] Agent connection closed before authentication.")
+        return
+    if not isinstance(auth_msg, str) or not hmac.compare_digest(auth_msg.encode(), AUTH_TOKEN.encode()):
+        print("[-] Agent rejected: invalid auth token.")
+        await websocket.close(code=4001, reason="invalid token")
+        return
+    await websocket.send("ok")
+
     print("[+] Local PC connected via WebSocket tunnel!")
     agent_ws = websocket
     try:
@@ -68,6 +80,10 @@ async def handle_visitor(reader, writer):
 
 
 async def main():
+    if not AUTH_TOKEN:
+        print("AUTH_TOKEN is not set. Add it to .env and restart.")
+        return
+
     tcp_server = await asyncio.start_server(handle_visitor, HTTP_LISTEN_HOST, HTTP_LISTEN_PORT)
     ws_server = await websockets.serve(ws_handler, WS_LISTEN_HOST, WS_LISTEN_PORT, ping_interval=WS_PING_INTERVAL)
     print(f"[*] App listening on {HTTP_LISTEN_HOST}:{HTTP_LISTEN_PORT}")

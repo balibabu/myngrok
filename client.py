@@ -1,7 +1,7 @@
 import asyncio
 import websockets
 
-from config import LOCAL_APP_HOST, LOCAL_APP_PORT, READ_CHUNK_SIZE, RECONNECT_DELAY, SERVER_WS_URL, WS_PING_INTERVAL
+from config import AUTH_TOKEN, LOCAL_APP_HOST, LOCAL_APP_PORT, READ_CHUNK_SIZE, RECONNECT_DELAY, SERVER_WS_URL, WS_PING_INTERVAL
 
 local_conns = {}
 
@@ -25,11 +25,19 @@ async def pipe_local_to_ws(conn_id, reader, ws):
 
 
 async def main():
+    if not AUTH_TOKEN:
+        print("AUTH_TOKEN is not set. Add it to your .env file.")
+        return
+
     while True:
         try:
             print(f"Connecting to {SERVER_WS_URL}...")
             async with websockets.connect(SERVER_WS_URL, ping_interval=WS_PING_INTERVAL) as ws:
-                print(f"[+] Tunnel open! Forwarding traffic to {LOCAL_APP_HOST}:{LOCAL_APP_PORT}")
+                await ws.send(AUTH_TOKEN)
+                ack = await ws.recv()
+                if ack != "ok":
+                    raise Exception(f"Authentication failed: {ack!r}")
+                print(f"[+] Authenticated. Tunnel open! Forwarding traffic to {LOCAL_APP_HOST}:{LOCAL_APP_PORT}")
                 async for msg in ws:
                     if not isinstance(msg, bytes) or len(msg) < 5:
                         continue

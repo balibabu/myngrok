@@ -33,7 +33,7 @@ A minimal ngrok-style TCP tunnel over WebSockets. A server running on a public m
    cp .env.example .env
    ```
 
-4. Edit `.env` to match your setup.
+4. Edit `.env` to match your setup. Set a strong `AUTH_TOKEN` (generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) and use the same value in the `.env` on both the server and client machines.
 
 ## Configuration
 
@@ -41,6 +41,7 @@ All settings live in `.env` (loaded via `config.py`):
 
 | Variable | Used by | Default | Description |
 |---|---|---|---|
+| `AUTH_TOKEN` | both | — | Shared secret the client sends to authenticate with the server (required; both sides must match) |
 | `SERVER_WS_URL` | client | `wss://tunnel-agent.rajababu.duckdns.org:4343` | WebSocket URL of the server's agent endpoint |
 | `LOCAL_APP_HOST` | client | `127.0.0.1` | Host of the local app to forward traffic to |
 | `LOCAL_APP_PORT` | client | `8000` | Port of the local app |

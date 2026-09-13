@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+AUTH_TOKEN = os.getenv("AUTH_TOKEN", "")
 SERVER_WS_URL = os.getenv("SERVER_WS_URL", "wss://tunnel-agent.rajababu.duckdns.org:4343")
 LOCAL_APP_HOST = os.getenv("LOCAL_APP_HOST", "127.0.0.1")
 LOCAL_APP_PORT = int(os.getenv("LOCAL_APP_PORT", "8000"))
