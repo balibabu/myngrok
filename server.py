@@ -1,12 +1,12 @@
 import asyncio
 import websockets
 
-HTTP_PORT = 5000   # For tunnel-app.rajababu.duckdns.org
-WS_PORT = 9000     # For tunnel-agent.rajababu.duckdns.org
+from config import HTTP_LISTEN_HOST, HTTP_LISTEN_PORT, READ_CHUNK_SIZE, WS_LISTEN_HOST, WS_LISTEN_PORT, WS_PING_INTERVAL
 
 agent_ws = None
 active_conns = {}
 next_conn_id = 1
+
 
 async def ws_handler(websocket, *args):
     global agent_ws
@@ -24,16 +24,17 @@ async def ws_handler(websocket, *args):
             if not writer:
                 continue
 
-            if cmd == 1:  # DATA
+            if cmd == 1:
                 writer.write(payload)
                 await writer.drain()
-            elif cmd == 2:  # CLOSE
+            elif cmd == 2:
                 writer.close()
                 active_conns.pop(conn_id, None)
     except Exception as e:
         print(f"[-] Local PC disconnected: {e}")
     finally:
         agent_ws = None
+
 
 async def handle_visitor(reader, writer):
     global next_conn_id
@@ -50,7 +51,7 @@ async def handle_visitor(reader, writer):
 
     try:
         while True:
-            data = await reader.read(65536)
+            data = await reader.read(READ_CHUNK_SIZE)
             if not data:
                 break
             await agent_ws.send(b'\x01' + conn_bytes + data)
@@ -65,13 +66,15 @@ async def handle_visitor(reader, writer):
         active_conns.pop(conn_id, None)
         writer.close()
 
+
 async def main():
-    tcp_server = await asyncio.start_server(handle_visitor, '127.0.0.1', HTTP_PORT)
-    ws_server = await websockets.serve(ws_handler, '127.0.0.1', WS_PORT, ping_interval=20)
-    print(f"[*] (NEW) App listening on 127.0.0.1:{HTTP_PORT}")
-    print(f"[*] (NEW) WebSocket Agent listening on 127.0.0.1:{WS_PORT}")
+    tcp_server = await asyncio.start_server(handle_visitor, HTTP_LISTEN_HOST, HTTP_LISTEN_PORT)
+    ws_server = await websockets.serve(ws_handler, WS_LISTEN_HOST, WS_LISTEN_PORT, ping_interval=WS_PING_INTERVAL)
+    print(f"[*] App listening on {HTTP_LISTEN_HOST}:{HTTP_LISTEN_PORT}")
+    print(f"[*] WebSocket Agent listening on {WS_LISTEN_HOST}:{WS_LISTEN_PORT}")
     async with tcp_server, ws_server:
         await asyncio.gather(tcp_server.serve_forever(), ws_server.wait_closed())
+
 
 if __name__ == '__main__':
     asyncio.run(main())
